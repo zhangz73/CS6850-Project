@@ -14,10 +14,10 @@ N = 1000 #1000
 P = 0.01
 #THRES_LST = np.random.uniform(0, 1, size = N) #0.005
 CUTOFF = (N * P - 1 + (1 - P) ** N) / (N * P)
-THRES_UP_LST = np.linspace(0.6, 1, 5)
-FRAC_INFECTED = 0.05
+THRES_UP_LST = np.linspace(0.4, 1, 7) #101
+FRAC_INFECTED = round(1 / np.log(N) ** 2, 2) #0.05
 NUM_ITR = 20
-NUM_TRIALS = 200
+NUM_TRIALS = 30 #200
 
 def single_trial_thres(THRES_UP, get_graph = False):
     # Model Configuration
