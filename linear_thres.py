@@ -11,13 +11,14 @@ from tqdm import tqdm
 ## Global Constants
 N = 1000 #1000
 #P_LST = np.linspace(0, 0.5, 101)[1:]
-P = 0.006
+Z = 10
+P = Z / N
 #THRES_LST = np.random.uniform(0, 1, size = N) #0.005
 CUTOFF = (N * P - 1 + (1 - P) ** N) / (N * P)
 THRES_UP_LST = np.linspace(0, 1, 11) #101
 FRAC_INFECTED = round(1 / np.log(N) ** 2, 2) #0.05
 NUM_ITR = 20
-NUM_TRIALS = 200 #30 #200
+NUM_TRIALS = 100 #30 #200
 
 def single_trial_thres(THRES_UP, get_graph = False):
     # Model Configuration
@@ -29,19 +30,27 @@ def single_trial_thres(THRES_UP, get_graph = False):
         config.add_node_configuration("threshold", i, THRES_LST[i])
     # Network topology
     g = nx.erdos_renyi_graph(N, P)
+    largest_cc = max(nx.connected_components(g), key = len)
     # Model selection
     model = ep.ThresholdModel(g)
     model.set_initial_status(config)
     # Simulation execution
     iterations = model.iteration_bunch(NUM_ITR)
     trends = model.build_trends(iterations)
-    frac_infected = trends[0]["trends"]["node_count"][1][-1] / N
+#    frac_infected = trends[0]["trends"]["node_count"][1][-1] / N
     snapshot = {}
-    if get_graph:
+    num_infected = 0
+    num_nodes = 0
+    if True: #get_graph:
         for i in range(NUM_ITR):
             dct = iterations[i]["status"]
             for key in dct:
                 snapshot[key] = dct[key]
+    for key in snapshot:
+        if key in largest_cc:
+            num_infected += snapshot[key]
+            num_nodes += 1
+    frac_infected = num_infected / num_nodes
     return frac_infected, (g, snapshot)
 
 def single_trial_degree(THRES_UP, get_graph = False):
@@ -54,6 +63,7 @@ def single_trial_degree(THRES_UP, get_graph = False):
         config.add_node_configuration("threshold", i, THRES_LST[i])
     # Network topology
     g = nx.erdos_renyi_graph(N, P)
+    largest_cc = max(nx.connected_components(g), key = len)
     # Model selection
     model = ep.ThresholdModel(g)
     model.set_initial_status(config)
@@ -62,6 +72,7 @@ def single_trial_degree(THRES_UP, get_graph = False):
     ## Collect infected nodes with their corresponding degrees
     nodes_infected_status = [0] * N
     nodes_degrees = [g.degree(x) for x in range(N)]
+    is_largest_component = [1 if x in largest_cc else 0 for x in range(N)]
     for itr in iterations:
         dct = itr["status"]
         for key in dct:
@@ -73,7 +84,9 @@ def single_trial_degree(THRES_UP, get_graph = False):
             dct = iterations[i]["status"]
             for key in dct:
                 snapshot[key] = dct[key]
-    df = pd.DataFrame.from_dict({"Degree": nodes_degrees, "FracInfected": nodes_infected_status})
+    df = pd.DataFrame.from_dict({"Degree": nodes_degrees, "FracInfected": nodes_infected_status, "InLargestCC": is_largest_component})
+    ## Filter the largest connected component
+    df = df[df["InLargestCC"] == 1]
     df = df.groupby("Degree").mean().reset_index()
     degree_frac_infected = np.zeros(N)
     max_deg = 0
@@ -101,54 +114,57 @@ def single_trial_degree(THRES_UP, get_graph = False):
 #plt.close()
 
 ## Get total infected fraction per threshold
-frac_infected_lst = []
-upper_lst = []
-lower_lst = []
-for THRES_UP in tqdm(THRES_UP_LST):
-    frac_infected_trials = np.zeros(NUM_TRIALS)
-    for trial in tqdm(range(NUM_TRIALS), leave = False):
-        frac_infected, _ = single_trial_thres(THRES_UP)
-        frac_infected_trials[trial] = frac_infected
-    frac_infected_lst.append(np.mean(frac_infected_trials))
-    upper_lst.append(np.quantile(frac_infected_trials, 0.975))
-    lower_lst.append(np.quantile(frac_infected_trials, 0.025))
-
-plt.plot(THRES_UP_LST, frac_infected_lst)
-plt.fill_between(THRES_UP_LST, lower_lst, upper_lst, alpha = 0.1)
-plt.axvline(x = CUTOFF, color = "red")
-plt.axvline(x = CUTOFF / 2, color = "green")
-plt.axhline(y = 1, color = "black")
-plt.xlabel("Maximum Threshold")
-plt.ylabel("Fraction of Infected")
-plt.title(f"rho = {FRAC_INFECTED}, p = {P}")
-plt.savefig(f"Plots/linearThres_rho={FRAC_INFECTED}_p={P}.png")
-plt.clf()
-plt.close()
-
-## Get number of infected nodes per degree per threshold
 #frac_infected_lst = []
 #upper_lst = []
 #lower_lst = []
 #for THRES_UP in tqdm(THRES_UP_LST):
-#    frac_infected_trials = np.zeros((NUM_TRIALS, N))
-#    minmax_deg = N
+#    frac_infected_trials = np.zeros(NUM_TRIALS)
 #    for trial in tqdm(range(NUM_TRIALS), leave = False):
-#        degree_frac_infected, max_deg, _ = single_trial_degree(THRES_UP)
-#        frac_infected_trials[trial,:] = degree_frac_infected
-#        minmax_deg = min(minmax_deg, max_deg)
-#    frac_infected_lst = np.mean(frac_infected_trials, axis = 0)[:(minmax_deg + 1)]
-#    upper_lst = np.quantile(frac_infected_trials, 0.975, axis = 0)[:(minmax_deg + 1)]
-#    lower_lst = np.quantile(frac_infected_trials, 0.025, axis = 0)[:(minmax_deg + 1)]
-#    degree_lst = np.arange(minmax_deg + 1)
+#        frac_infected, _ = single_trial_thres(THRES_UP)
+#        frac_infected_trials[trial] = frac_infected
+#    frac_infected_lst.append(np.mean(frac_infected_trials))
+#    upper_lst.append(np.quantile(frac_infected_trials, 0.975))
+#    lower_lst.append(np.quantile(frac_infected_trials, 0.025))
 #
-#    plt.plot(degree_lst, frac_infected_lst)
-#    plt.fill_between(degree_lst, lower_lst, upper_lst, alpha = 0.1)
-#    plt.xlabel("Node Degree")
-#    plt.ylabel("Fraction of Infected")
-#    plt.title(f"1/m = {round(THRES_UP, 2)}, Cutoff = {round(CUTOFF, 2)}\nrho = {FRAC_INFECTED}, p = {P}")
-#    plt.savefig(f"Plots/degree_maxthres={round(THRES_UP, 2)}_rho={FRAC_INFECTED}_p={P}.png")
-#    plt.clf()
-#    plt.close()
+#plt.plot(THRES_UP_LST, frac_infected_lst)
+#plt.fill_between(THRES_UP_LST, lower_lst, upper_lst, alpha = 0.1)
+#plt.axvline(x = CUTOFF, color = "red")
+#plt.axvline(x = CUTOFF / 2, color = "green")
+#plt.axhline(y = 1, color = "black")
+#plt.xlabel("Maximum Threshold")
+#plt.ylabel("Fraction of Infected")
+#plt.title(f"rho = {FRAC_INFECTED}, p = {P}")
+#plt.savefig(f"Plots/linearThres_rho={FRAC_INFECTED}_p={P}.png")
+#plt.clf()
+#plt.close()
+
+## Get number of infected nodes per degree per threshold
+frac_infected_lst = []
+upper_lst = []
+lower_lst = []
+for THRES_UP in tqdm(THRES_UP_LST):
+    frac_infected_trials = np.zeros((NUM_TRIALS, N))
+    minmax_deg = N
+    for trial in tqdm(range(NUM_TRIALS), leave = False):
+        degree_frac_infected, max_deg, _ = single_trial_degree(THRES_UP)
+        frac_infected_trials[trial,:] = degree_frac_infected
+        minmax_deg = min(minmax_deg, max_deg)
+    frac_infected_lst = np.mean(frac_infected_trials, axis = 0)[:(minmax_deg + 1)]
+    upper_lst = np.quantile(frac_infected_trials, 0.975, axis = 0)[:(minmax_deg + 1)]
+    lower_lst = np.quantile(frac_infected_trials, 0.025, axis = 0)[:(minmax_deg + 1)]
+    degree_lst = np.arange(minmax_deg + 1)
+
+    plt.plot(degree_lst, frac_infected_lst)
+    plt.fill_between(degree_lst, lower_lst, upper_lst, alpha = 0.1)
+    plt.xlabel("Node Degree")
+    plt.ylabel("Fraction of Infected")
+    plt.title(f"1/m = {round(THRES_UP, 2)}, Cutoff = {round(CUTOFF, 2)}\nrho = {FRAC_INFECTED}, p = {P}")
+    plt.savefig(f"Plots/degree_maxthres={round(THRES_UP, 2)}_rho={FRAC_INFECTED}_p={P}.png")
+    plt.clf()
+    plt.close()
 
 ## Debugging Region
 #single_trial(0.8)
+#frac_infected, (g, snapshot) = single_trial_thres(0.8, get_graph = True)
+#print(frac_infected)
+#print(snapshot)
