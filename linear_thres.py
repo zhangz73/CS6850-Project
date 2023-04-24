@@ -12,7 +12,7 @@ from tqdm import tqdm
 ## Global Constants
 N = 1000 #1000
 #P_LST = np.linspace(0, 0.5, 101)[1:]
-Z = 1.5
+Z = 2
 P = Z / N
 #THRES_LST = np.random.uniform(0, 1, size = N) #0.005
 CUTOFF = (N * P - 1 + (1 - P) ** N) / (N * P)
@@ -109,9 +109,9 @@ def single_trial_degree(THRES_UP, get_graph = False):
                 snapshot[key] = dct[key]
     df = pd.DataFrame.from_dict({"Degree": nodes_degrees, "FracInfected": nodes_infected_status, "InLargestCC": is_largest_component})
     ## Filter the largest connected component
-    df = df[df["InLargestCC"] == 1]
+#    df = df[df["InLargestCC"] == 1]
     df_full = df.copy()
-    frac_infected_all = df_full[["FracInfected"]].mean()
+    frac_infected_all = df_full[df_full["Degree"] > 0][["FracInfected"]].mean()
     df = df.groupby("Degree").mean().reset_index()
     degree_frac_infected = np.zeros(N)
     max_deg = 0
