@@ -131,7 +131,7 @@ def single_trial_degree(THRES_UP, get_graph = False):
     df_full = df.copy()
     df["Count"] = 1
     df_deg = df[["Degree", "Count"]].groupby("Degree").sum().reset_index()
-    df_deg = df_deg[df_deg["Count"] >= 2]
+    df_deg = df_deg[df_deg["Count"] >= 3]
     max_deg = df_deg["Degree"].max()
     frac_infected_all = df_full[df_full["Degree"] > 0][["FracInfected"]].mean()
     df = df.groupby("Degree").mean().reset_index()
