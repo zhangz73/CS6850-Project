@@ -10,16 +10,26 @@ from matplotlib.animation import FuncAnimation
 from tqdm import tqdm
 
 ## Global Constants
-N = 100 #1000
+N = 1000 #100
 #P_LST = np.linspace(0, 0.5, 101)[1:]
-Z = 5
+Z = 3
 P = Z / N
 #THRES_LST = np.random.uniform(0, 1, size = N) #0.005
-CUTOFF = (N * P - 1 + (1 - P) ** N) / (N * P)
-THRES_UP_LST = np.linspace(0, 1, 11) #101
+THRES_UP_LST = [0.3, 0.6, 0.9] #np.linspace(0, 1, 11) #101
 FRAC_INFECTED = round(1 / np.log(N) ** 2, 2) #0.05
 NUM_ITR = 80
-NUM_TRIALS = 100 #30 #200
+NUM_TRIALS = 500 #30 #200
+D = 1
+BETA = 2/3
+W = D * (N / np.arange(1, N + 1)) ** BETA
+GRAPH_TYPE = "Chung-Lu" # Gnp, Chung-Lu
+if GRAPH_TYPE == "Gnp":
+    CUTOFF = (N * P - 1 + (1 - P) ** N) / (N * P)
+else:
+    w_tot = np.sum(W)
+    Z = np.mean(W * (1 - W / w_tot))
+    CUTOFF = (Z - 1) / Z
+print(CUTOFF)
 
 fig = plt.figure()
 
@@ -41,7 +51,9 @@ def draw_graph(i, g, iterations, cent, node_pos, snapshot, thres):
     frac_infected = infected_nodes / num_nodes
     nx.draw_networkx_nodes(g, pos = node_pos, node_color = color_map, node_size = 50)
     nx.draw_networkx_edges(g, pos = node_pos, edgelist = cent, alpha = 0.1)
-    plt.title(f"Threshold: {thres} - Iteration #{i+1} Infected {(frac_infected * 100):.2f}%\nCutoff: {CUTOFF:.2f}")
+#    plt.title(f"Threshold: {thres} - Iteration #{i+1} Infected {(frac_infected * 100):.2f}%\nCutoff: {CUTOFF:.2f}")
+    if i in [0, 4, 9]:
+        plt.savefig(f"Snapshots/type={GRAPH_TYPE.lower()}_thres={thres}_itr={i+1}.png")
 
 def single_trial_thres(THRES_UP, get_graph = False):
     # Model Configuration
@@ -52,7 +64,10 @@ def single_trial_thres(THRES_UP, get_graph = False):
     for i in range(N):
         config.add_node_configuration("threshold", i, THRES_LST[i])
     # Network topology
-    g = nx.erdos_renyi_graph(N, P)
+    if GRAPH_TYPE == "Gnp":
+        g = nx.erdos_renyi_graph(N, P)
+    else:
+        g = nx.expected_degree_graph(W, selfloops = False)
     largest_cc = max(nx.connected_components(g), key = len)
     # Model selection
     model = ep.ThresholdModel(g)
@@ -85,7 +100,10 @@ def single_trial_degree(THRES_UP, get_graph = False):
     for i in range(N):
         config.add_node_configuration("threshold", i, THRES_LST[i])
     # Network topology
-    g = nx.erdos_renyi_graph(N, P)
+    if GRAPH_TYPE == "Gnp":
+        g = nx.erdos_renyi_graph(N, P)
+    else:
+        g = nx.expected_degree_graph(W, selfloops = False)
     largest_cc = max(nx.connected_components(g), key = len)
     # Model selection
     model = ep.ThresholdModel(g)
@@ -109,7 +127,7 @@ def single_trial_degree(THRES_UP, get_graph = False):
                 snapshot[key] = dct[key]
     df = pd.DataFrame.from_dict({"Degree": nodes_degrees, "FracInfected": nodes_infected_status, "InLargestCC": is_largest_component})
     ## Filter the largest connected component
-#    df = df[df["InLargestCC"] == 1]
+    df = df[df["InLargestCC"] == 1]
     df_full = df.copy()
     frac_infected_all = df_full[df_full["Degree"] > 0][["FracInfected"]].mean()
     df = df.groupby("Degree").mean().reset_index()
@@ -123,15 +141,15 @@ def single_trial_degree(THRES_UP, get_graph = False):
     return degree_frac_infected, max_deg, frac_infected_all, (g, snapshot)
 
 ## Animation
-THRES_UP = 0.75
-frac_infected, (g, snapshot, iterations) = single_trial_thres(THRES_UP, get_graph = True)
-largest_cc = max(nx.connected_components(g), key = len)
-g = g.subgraph(largest_cc)
-cent=nx.edge_betweenness_centrality(g)
-node_pos=nx.spring_layout(g)
-snapshot = {}
-anim = FuncAnimation(fig, draw_graph, frames = len(iterations), interval = 1000, fargs=(g, iterations, cent, node_pos, snapshot, THRES_UP), repeat = True)
-plt.show()
+#THRES_UP = 0.9 # 0.3, 0.6, 0.9
+#frac_infected, (g, snapshot, iterations) = single_trial_thres(THRES_UP, get_graph = True)
+#largest_cc = max(nx.connected_components(g), key = len)
+#g = g.subgraph(largest_cc)
+#cent=nx.edge_betweenness_centrality(g)
+#node_pos=nx.spring_layout(g)
+#snapshot = {}
+#anim = FuncAnimation(fig, draw_graph, frames = len(iterations), interval = 1000, fargs=(g, iterations, cent, node_pos, snapshot, THRES_UP), repeat = True)
+#plt.show()
 
 ## Single Snapshot
 #largest_cc = max(nx.connected_components(g), key = len)
@@ -166,45 +184,52 @@ plt.show()
 #plt.plot(THRES_UP_LST, frac_infected_lst)
 #plt.fill_between(THRES_UP_LST, lower_lst, upper_lst, alpha = 0.1)
 #plt.axvline(x = CUTOFF, color = "red")
-#plt.axvline(x = CUTOFF / 2, color = "green")
+##plt.axvline(x = CUTOFF / 2, color = "green")
 #plt.axhline(y = 1, color = "black")
 #plt.xlabel("Maximum Threshold")
 #plt.ylabel("Fraction of Infected")
-#plt.title(f"rho = {FRAC_INFECTED}, p = {P}")
-#plt.savefig(f"Plots/linearThres_rho={FRAC_INFECTED}_p={P}.png")
+##plt.title(f"rho = {FRAC_INFECTED}, p = {P}")
+#if GRAPH_TYPE == "Gnp":
+#    plt.savefig(f"FracInfected/frac-infected_type=gnp_n={N}_p={P}.png")
+#else:
+#    plt.savefig(f"FracInfected/frac-infected_type=chung-lu_d={D}_beta={round(BETA, 2)}.png")
 #plt.clf()
 #plt.close()
 
 ## Get number of infected nodes per degree per threshold
-#frac_infected_lst = []
-#upper_lst = []
-#lower_lst = []
-#for THRES_UP in tqdm(THRES_UP_LST):
-#    frac_infected_trials = np.zeros((NUM_TRIALS, N))
-#    minmax_deg = N
-#    frac_infected_all_trials = np.zeros(NUM_TRIALS)
-#    for trial in tqdm(range(NUM_TRIALS), leave = False):
-#        degree_frac_infected, max_deg, frac_infected_all, _ = single_trial_degree(THRES_UP)
-#        frac_infected_trials[trial,:] = degree_frac_infected
-#        frac_infected_all_trials[trial] = frac_infected_all
-#        minmax_deg = min(minmax_deg, max_deg)
-#    frac_infected_lst = np.mean(frac_infected_trials, axis = 0)[1:(minmax_deg + 1)]
-#    upper_lst = np.quantile(frac_infected_trials, 0.975, axis = 0)[1:(minmax_deg + 1)]
-#    lower_lst = np.quantile(frac_infected_trials, 0.025, axis = 0)[1:(minmax_deg + 1)]
-#    degree_lst = np.arange(1, minmax_deg + 1)
-#    frac_infected_all = np.mean(frac_infected_all_trials)
-#
-#    plt.plot(degree_lst, frac_infected_lst)
-#    plt.fill_between(degree_lst, lower_lst, upper_lst, alpha = 0.1)
-##    plt.axvline(x = 1, color = "red", label = "degree = 1")
-#    plt.axhline(y = frac_infected_all, color = "green", label = "Pop Avg Infected")
-#    plt.xlabel("Node Degree")
-#    plt.ylabel("Fraction of Infected")
-#    plt.legend()
+frac_infected_lst = []
+upper_lst = []
+lower_lst = []
+for THRES_UP in tqdm(THRES_UP_LST):
+    frac_infected_trials = np.zeros((NUM_TRIALS, N))
+    minmax_deg = N
+    frac_infected_all_trials = np.zeros(NUM_TRIALS)
+    for trial in tqdm(range(NUM_TRIALS), leave = False):
+        degree_frac_infected, max_deg, frac_infected_all, _ = single_trial_degree(THRES_UP)
+        frac_infected_trials[trial,:] = degree_frac_infected
+        frac_infected_all_trials[trial] = frac_infected_all
+        minmax_deg = min(minmax_deg, max_deg)
+    frac_infected_lst = np.mean(frac_infected_trials, axis = 0)[1:(minmax_deg + 1)]
+    upper_lst = np.quantile(frac_infected_trials, 0.975, axis = 0)[1:(minmax_deg + 1)]
+    lower_lst = np.quantile(frac_infected_trials, 0.025, axis = 0)[1:(minmax_deg + 1)]
+    degree_lst = np.arange(1, minmax_deg + 1)
+    frac_infected_all = np.mean(frac_infected_all_trials)
+
+    plt.plot(degree_lst, frac_infected_lst)
+    plt.fill_between(degree_lst, lower_lst, upper_lst, alpha = 0.1)
+#    plt.axvline(x = 1, color = "red", label = "degree = 1")
+    plt.axhline(y = frac_infected_all, color = "green", label = "Pop Avg Infected")
+    plt.xlabel("Node Degree")
+    plt.ylabel("Fraction of Infected")
+    plt.ylim(0, 1.1)
+    plt.legend()
 #    plt.title(f"1/m = {round(THRES_UP, 2)}, Cutoff = {round(CUTOFF, 2)}\nrho = {FRAC_INFECTED}, p = {P}")
-#    plt.savefig(f"Plots/degree_maxthres={round(THRES_UP, 2)}_rho={FRAC_INFECTED}_p={P}.png")
-#    plt.clf()
-#    plt.close()
+    if GRAPH_TYPE == "Gnp":
+        plt.savefig(f"Degree/degree_type=gnp_n={N}_p={P}_maxthres={round(THRES_UP, 2)}.png")
+    else:
+        plt.savefig(f"Degree/degree_type=chung-lu_d={D}_beta={round(BETA, 2)}_maxthres={round(THRES_UP, 2)}.png")
+    plt.clf()
+    plt.close()
 
 ## Debugging Region
 #single_trial(0.8)
