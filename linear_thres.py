@@ -129,14 +129,18 @@ def single_trial_degree(THRES_UP, get_graph = False):
     ## Filter the largest connected component
     df = df[df["InLargestCC"] == 1]
     df_full = df.copy()
+    df["Count"] = 1
+    df_deg = df[["Degree", "Count"]].groupby("Degree").sum().reset_index()
+    df_deg = df_deg[df_deg["Count"] >= 2]
+    max_deg = df_deg["Degree"].max()
     frac_infected_all = df_full[df_full["Degree"] > 0][["FracInfected"]].mean()
     df = df.groupby("Degree").mean().reset_index()
-    degree_frac_infected = np.zeros(N)
-    max_deg = 0
+    degree_frac_infected = np.empty(N)
+#    max_deg = 0
     for i in range(df.shape[0]):
         deg = int(df.iloc[i]["Degree"])
         frac_infected = df.iloc[i]["FracInfected"]
-        max_deg = max(max_deg, deg)
+#        max_deg = max(max_deg, deg)
         degree_frac_infected[deg] = frac_infected
     return degree_frac_infected, max_deg, frac_infected_all, (g, snapshot)
 
@@ -209,9 +213,9 @@ for THRES_UP in tqdm(THRES_UP_LST):
         frac_infected_trials[trial,:] = degree_frac_infected
         frac_infected_all_trials[trial] = frac_infected_all
         minmax_deg = min(minmax_deg, max_deg)
-    frac_infected_lst = np.mean(frac_infected_trials, axis = 0)[1:(minmax_deg + 1)]
-    upper_lst = np.quantile(frac_infected_trials, 0.975, axis = 0)[1:(minmax_deg + 1)]
-    lower_lst = np.quantile(frac_infected_trials, 0.025, axis = 0)[1:(minmax_deg + 1)]
+    frac_infected_lst = np.nanmean(frac_infected_trials, axis = 0)[1:(minmax_deg + 1)]
+    upper_lst = np.nanquantile(frac_infected_trials, 0.975, axis = 0)[1:(minmax_deg + 1)]
+    lower_lst = np.nanquantile(frac_infected_trials, 0.025, axis = 0)[1:(minmax_deg + 1)]
     degree_lst = np.arange(1, minmax_deg + 1)
     frac_infected_all = np.mean(frac_infected_all_trials)
 
