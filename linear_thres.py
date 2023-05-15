@@ -15,7 +15,7 @@ N = 1000 #100
 Z = 3
 P = Z / N
 #THRES_LST = np.random.uniform(0, 1, size = N) #0.005
-THRES_UP_LST = np.linspace(0, 1, 21) #[0.3, 0.6, 0.9] #101
+THRES_UP_LST = [0.3, 0.6, 0.9] #np.linspace(0, 1, 21) #101
 FRAC_INFECTED = round(1 / np.log(N) ** 2, 2) #0.05
 NUM_ITR = 80
 NUM_TRIALS = 200 #30 #200
@@ -131,7 +131,7 @@ def single_trial_degree(THRES_UP, get_graph = False):
     df_full = df.copy()
     df["Count"] = 1
     df_deg = df[["Degree", "Count"]].groupby("Degree").sum().reset_index()
-    df_deg = df_deg[df_deg["Count"] >= 3]
+    df_deg = df_deg[df_deg["Count"] >= 1]
     max_deg = df_deg["Degree"].max()
     frac_infected_all = df_full[df_full["Degree"] > 0][["FracInfected"]].mean()
     df = df.groupby("Degree").mean().reset_index()
@@ -173,67 +173,67 @@ def single_trial_degree(THRES_UP, get_graph = False):
 #plt.close()
 
 ## Get total infected fraction per threshold
-frac_infected_lst = []
-upper_lst = []
-lower_lst = []
-for THRES_UP in tqdm(THRES_UP_LST):
-    frac_infected_trials = np.zeros(NUM_TRIALS)
-    for trial in tqdm(range(NUM_TRIALS), leave = False):
-        frac_infected, _ = single_trial_thres(THRES_UP)
-        frac_infected_trials[trial] = frac_infected
-    frac_infected_lst.append(np.mean(frac_infected_trials))
-    upper_lst.append(np.quantile(frac_infected_trials, 0.975))
-    lower_lst.append(np.quantile(frac_infected_trials, 0.025))
-
-plt.plot(THRES_UP_LST, frac_infected_lst)
-plt.fill_between(THRES_UP_LST, lower_lst, upper_lst, alpha = 0.1)
-plt.axvline(x = CUTOFF, color = "red")
-#plt.axvline(x = CUTOFF / 2, color = "green")
-plt.axhline(y = 1, color = "black")
-plt.xlabel("Maximum Threshold")
-plt.ylabel("Fraction of Infected")
-#plt.title(f"rho = {FRAC_INFECTED}, p = {P}")
-if GRAPH_TYPE == "Gnp":
-    plt.savefig(f"FracInfected/frac-infected_type=gnp_n={N}_p={P}.png")
-else:
-    plt.savefig(f"FracInfected/frac-infected_type=chung-lu_d={D}_beta={round(BETA, 2)}.png")
-plt.clf()
-plt.close()
-
-## Get number of infected nodes per degree per threshold
 #frac_infected_lst = []
 #upper_lst = []
 #lower_lst = []
 #for THRES_UP in tqdm(THRES_UP_LST):
-#    frac_infected_trials = np.zeros((NUM_TRIALS, N))
-#    minmax_deg = N
-#    frac_infected_all_trials = np.zeros(NUM_TRIALS)
+#    frac_infected_trials = np.zeros(NUM_TRIALS)
 #    for trial in tqdm(range(NUM_TRIALS), leave = False):
-#        degree_frac_infected, max_deg, frac_infected_all, _ = single_trial_degree(THRES_UP)
-#        frac_infected_trials[trial,:] = degree_frac_infected
-#        frac_infected_all_trials[trial] = frac_infected_all
-#        minmax_deg = min(minmax_deg, max_deg)
-#    frac_infected_lst = np.nanmean(frac_infected_trials, axis = 0)[1:(minmax_deg + 1)]
-#    upper_lst = np.nanquantile(frac_infected_trials, 0.975, axis = 0)[1:(minmax_deg + 1)]
-#    lower_lst = np.nanquantile(frac_infected_trials, 0.025, axis = 0)[1:(minmax_deg + 1)]
-#    degree_lst = np.arange(1, minmax_deg + 1)
-#    frac_infected_all = np.mean(frac_infected_all_trials)
+#        frac_infected, _ = single_trial_thres(THRES_UP)
+#        frac_infected_trials[trial] = frac_infected
+#    frac_infected_lst.append(np.mean(frac_infected_trials))
+#    upper_lst.append(np.quantile(frac_infected_trials, 0.975))
+#    lower_lst.append(np.quantile(frac_infected_trials, 0.025))
 #
-#    plt.plot(degree_lst, frac_infected_lst)
-#    plt.fill_between(degree_lst, lower_lst, upper_lst, alpha = 0.1)
-##    plt.axvline(x = 1, color = "red", label = "degree = 1")
-#    plt.axhline(y = frac_infected_all, color = "green", label = "Pop Avg Infected")
-#    plt.xlabel("Node Degree")
-#    plt.ylabel("Fraction of Infected")
-#    plt.ylim(0, 1.1)
-#    plt.legend()
-##    plt.title(f"1/m = {round(THRES_UP, 2)}, Cutoff = {round(CUTOFF, 2)}\nrho = {FRAC_INFECTED}, p = {P}")
-#    if GRAPH_TYPE == "Gnp":
-#        plt.savefig(f"Degree/degree_type=gnp_n={N}_p={P}_maxthres={round(THRES_UP, 2)}.png")
-#    else:
-#        plt.savefig(f"Degree/degree_type=chung-lu_d={D}_beta={round(BETA, 2)}_maxthres={round(THRES_UP, 2)}.png")
-#    plt.clf()
-#    plt.close()
+#plt.plot(THRES_UP_LST, frac_infected_lst)
+#plt.fill_between(THRES_UP_LST, lower_lst, upper_lst, alpha = 0.1)
+#plt.axvline(x = CUTOFF, color = "red")
+##plt.axvline(x = CUTOFF / 2, color = "green")
+#plt.axhline(y = 1, color = "black")
+#plt.xlabel("Maximum Threshold")
+#plt.ylabel("Fraction of Infected")
+##plt.title(f"rho = {FRAC_INFECTED}, p = {P}")
+#if GRAPH_TYPE == "Gnp":
+#    plt.savefig(f"FracInfected/frac-infected_type=gnp_n={N}_p={P}.png")
+#else:
+#    plt.savefig(f"FracInfected/frac-infected_type=chung-lu_d={D}_beta={round(BETA, 2)}.png")
+#plt.clf()
+#plt.close()
+
+## Get number of infected nodes per degree per threshold
+frac_infected_lst = []
+upper_lst = []
+lower_lst = []
+for THRES_UP in tqdm(THRES_UP_LST):
+    frac_infected_trials = np.zeros((NUM_TRIALS, N))
+    minmax_deg = N
+    frac_infected_all_trials = np.zeros(NUM_TRIALS)
+    for trial in tqdm(range(NUM_TRIALS), leave = False):
+        degree_frac_infected, max_deg, frac_infected_all, _ = single_trial_degree(THRES_UP)
+        frac_infected_trials[trial,:] = degree_frac_infected
+        frac_infected_all_trials[trial] = frac_infected_all
+        minmax_deg = min(minmax_deg, max_deg)
+    frac_infected_lst = np.nanmean(frac_infected_trials, axis = 0)[1:(minmax_deg + 1)]
+    upper_lst = np.nanquantile(frac_infected_trials, 0.975, axis = 0)[1:(minmax_deg + 1)]
+    lower_lst = np.nanquantile(frac_infected_trials, 0.025, axis = 0)[1:(minmax_deg + 1)]
+    degree_lst = np.arange(1, minmax_deg + 1)
+    frac_infected_all = np.mean(frac_infected_all_trials)
+
+    plt.plot(degree_lst, frac_infected_lst)
+    plt.fill_between(degree_lst, lower_lst, upper_lst, alpha = 0.1)
+#    plt.axvline(x = 1, color = "red", label = "degree = 1")
+    plt.axhline(y = frac_infected_all, color = "green", label = "Pop Avg Infected")
+    plt.xlabel("Node Degree")
+    plt.ylabel("Fraction of Infected")
+    plt.ylim(0, 1.1)
+    plt.legend()
+#    plt.title(f"1/m = {round(THRES_UP, 2)}, Cutoff = {round(CUTOFF, 2)}\nrho = {FRAC_INFECTED}, p = {P}")
+    if GRAPH_TYPE == "Gnp":
+        plt.savefig(f"Degree/degree_type=gnp_n={N}_p={P}_maxthres={round(THRES_UP, 2)}.png")
+    else:
+        plt.savefig(f"Degree/degree_type=chung-lu_d={D}_beta={round(BETA, 2)}_maxthres={round(THRES_UP, 2)}_full.png")
+    plt.clf()
+    plt.close()
 
 ## Debugging Region
 #single_trial(0.8)
